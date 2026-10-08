@@ -88,11 +88,17 @@ class EmpresaListaVista(LoginRequiredMixin, ListView):
     template_name = 'empresas/empresa_lista.html'
     context_object_name = 'empresas'
     paginate_by = 20
+    tipos_permitidos = {'todos', 'clientes', 'proveedores', 'ambos'}
 
     def get_queryset(self):
         """Filtra empresas por razón social, RUC o correo electrónico."""
         empresas = Empresa.objects.prefetch_related('categorias')
         self.termino_busqueda = self.request.GET.get('q', '').strip()
+        tipo_solicitado = self.request.GET.get('tipo', 'todos')
+        self.tipo_empresa = (
+            tipo_solicitado if tipo_solicitado in self.tipos_permitidos
+            else 'todos'
+        )
 
         if self.termino_busqueda:
             empresas = empresas.filter(
@@ -101,12 +107,23 @@ class EmpresaListaVista(LoginRequiredMixin, ListView):
                 | Q(email__icontains=self.termino_busqueda)
             )
 
+        if self.tipo_empresa == 'clientes':
+            empresas = empresas.filter(es_cliente=True)
+        elif self.tipo_empresa == 'proveedores':
+            empresas = empresas.filter(es_proveedor=True)
+        elif self.tipo_empresa == 'ambos':
+            empresas = empresas.filter(es_cliente=True, es_proveedor=True)
+
         return empresas
 
     def get_context_data(self, **kwargs):
-        """Conserva el término para mostrarlo en el campo y la paginación."""
+        """Conserva los criterios para mostrarlos y mantener la paginación."""
         contexto = super().get_context_data(**kwargs)
         contexto['termino_busqueda'] = self.termino_busqueda
+        contexto['tipo_empresa'] = self.tipo_empresa
+        contexto['hay_filtros'] = (
+            bool(self.termino_busqueda) or self.tipo_empresa != 'todos'
+        )
         return contexto
 
 

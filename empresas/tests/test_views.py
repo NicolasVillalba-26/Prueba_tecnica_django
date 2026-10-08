@@ -265,3 +265,96 @@ class BusquedaEmpresasPruebas(TestCase):
         respuesta = self.client.get(self.url, {'q': 'farmacia'})
         self.assertEqual(respuesta.status_code, 302)
         self.assertIn(reverse('login'), respuesta.url)
+
+
+class FiltroTipoEmpresaPruebas(TestCase):
+    """Verifica el filtro comercial y su combinación con la búsqueda."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user(
+            username='filtro_empresas', password='Clave-segura-2026'
+        )
+        cls.solo_cliente = Empresa.objects.create(
+            razon_social='Cliente Norte S.A.', ruc='80004000-1',
+            email='cliente@norte.com', telefono='021 400 001',
+            es_cliente=True,
+        )
+        cls.solo_proveedor = Empresa.objects.create(
+            razon_social='Proveedor Sur S.A.', ruc='80005000-2',
+            email='proveedor@sur.com', telefono='021 500 002',
+            es_proveedor=True,
+        )
+        cls.ambos = Empresa.objects.create(
+            razon_social='Comercial Mixta S.A.', ruc='80006000-3',
+            email='contacto@mixta.com', telefono='021 600 003',
+            es_cliente=True, es_proveedor=True,
+        )
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+        self.url = reverse('empresas:empresa_lista')
+
+    def obtener_empresas(self, **parametros):
+        """Consulta el listado y materializa sus resultados filtrados."""
+        respuesta = self.client.get(self.url, parametros)
+        return respuesta, list(respuesta.context['empresas'])
+
+    def test_filtro_todos(self):
+        respuesta, empresas = self.obtener_empresas(tipo='todos')
+
+        self.assertCountEqual(
+            empresas, [self.solo_cliente, self.solo_proveedor, self.ambos]
+        )
+        self.assertEqual(respuesta.context['tipo_empresa'], 'todos')
+
+    def test_filtro_clientes_incluye_empresas_que_son_ambos(self):
+        _, empresas = self.obtener_empresas(tipo='clientes')
+        self.assertCountEqual(empresas, [self.solo_cliente, self.ambos])
+
+    def test_filtro_proveedores_incluye_empresas_que_son_ambos(self):
+        _, empresas = self.obtener_empresas(tipo='proveedores')
+        self.assertCountEqual(empresas, [self.solo_proveedor, self.ambos])
+
+    def test_filtro_ambos(self):
+        respuesta, empresas = self.obtener_empresas(tipo='ambos')
+
+        self.assertEqual(empresas, [self.ambos])
+        self.assertContains(respuesta, 'value="ambos" selected')
+
+    def test_empresa_ambos_cumple_cada_filtro_individual(self):
+        for tipo in ('clientes', 'proveedores', 'ambos'):
+            with self.subTest(tipo=tipo):
+                _, empresas = self.obtener_empresas(tipo=tipo)
+                self.assertIn(self.ambos, empresas)
+
+    def test_combina_busqueda_con_filtro(self):
+        respuesta, empresas = self.obtener_empresas(q='comercial', tipo='clientes')
+
+        self.assertEqual(empresas, [self.ambos])
+        self.assertEqual(respuesta.context['termino_busqueda'], 'comercial')
+        self.assertEqual(respuesta.context['tipo_empresa'], 'clientes')
+
+    def test_parametro_desconocido_utiliza_todos(self):
+        respuesta, empresas = self.obtener_empresas(tipo='desconocido')
+
+        self.assertCountEqual(
+            empresas, [self.solo_cliente, self.solo_proveedor, self.ambos]
+        )
+        self.assertEqual(respuesta.context['tipo_empresa'], 'todos')
+
+    def test_resultado_sin_coincidencias(self):
+        respuesta, empresas = self.obtener_empresas(
+            q='Cliente Norte', tipo='proveedores'
+        )
+
+        self.assertEqual(empresas, [])
+        self.assertContains(respuesta, 'No se encontraron empresas')
+        self.assertContains(respuesta, 'Limpiar')
+
+    def test_filtro_requiere_autenticacion(self):
+        self.client.logout()
+        respuesta = self.client.get(self.url, {'tipo': 'clientes'})
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn(reverse('login'), respuesta.url)
