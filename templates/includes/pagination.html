@@ -2,11 +2,11 @@
     <nav aria-label="Paginación de resultados">
         <ul class="pagination justify-content-end mb-0">
             <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
-                {% if page_obj.has_previous %}<a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>{% else %}<span class="page-link">Anterior</span>{% endif %}
+                {% if page_obj.has_previous %}<a class="page-link" href="?{% if termino_busqueda %}q={{ termino_busqueda|urlencode }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>{% else %}<span class="page-link">Anterior</span>{% endif %}
             </li>
             <li class="page-item active" aria-current="page"><span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
             <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
-                {% if page_obj.has_next %}<a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a>{% else %}<span class="page-link">Siguiente</span>{% endif %}
+                {% if page_obj.has_next %}<a class="page-link" href="?{% if termino_busqueda %}q={{ termino_busqueda|urlencode }}&amp;{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a>{% else %}<span class="page-link">Siguiente</span>{% endif %}
             </li>
         </ul>
     </nav>

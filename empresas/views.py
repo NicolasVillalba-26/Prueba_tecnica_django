@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.views.generic import (
@@ -89,7 +90,24 @@ class EmpresaListaVista(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return Empresa.objects.prefetch_related('categorias')
+        """Filtra empresas por razón social, RUC o correo electrónico."""
+        empresas = Empresa.objects.prefetch_related('categorias')
+        self.termino_busqueda = self.request.GET.get('q', '').strip()
+
+        if self.termino_busqueda:
+            empresas = empresas.filter(
+                Q(razon_social__icontains=self.termino_busqueda)
+                | Q(ruc__icontains=self.termino_busqueda)
+                | Q(email__icontains=self.termino_busqueda)
+            )
+
+        return empresas
+
+    def get_context_data(self, **kwargs):
+        """Conserva el término para mostrarlo en el campo y la paginación."""
+        contexto = super().get_context_data(**kwargs)
+        contexto['termino_busqueda'] = self.termino_busqueda
+        return contexto
 
 
 class EmpresaDetalleVista(LoginRequiredMixin, DetailView):

@@ -98,6 +98,7 @@ class CrudEmpresasPruebas(TestCase):
         self.assertEqual(empresa.usuario_modificacion, self.usuario)
         self.assertEqual(list(empresa.categorias.all()), [self.categoria])
 
+
     def test_editar_empresa_conserva_usuario_creacion(self):
         respuesta = self.client.post(reverse('empresas:empresa_editar', args=[self.empresa.pk]), {
             'razon_social': 'Empresa Modificada S.A.', 'ruc': self.empresa.ruc,
@@ -201,3 +202,66 @@ class CrudEmpresasPruebas(TestCase):
 
         self.assertEqual(empresa.usuario_creacion, creador)
         self.assertEqual(empresa.usuario_modificacion, self.usuario)
+
+
+class BusquedaEmpresasPruebas(TestCase):
+    """Verifica la búsqueda combinada del listado de empresas."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user(
+            username='buscador', password='Clave-segura-2026'
+        )
+        cls.farmacia = Empresa.objects.create(
+            razon_social='Farmacia Central S.A.', ruc='80002000-1',
+            email='contacto@farmaciacentral.com', telefono='021 200 001',
+            es_cliente=True,
+        )
+        cls.tecnologia = Empresa.objects.create(
+            razon_social='Tecnología del Sur S.R.L.', ruc='80003000-2',
+            email='ventas@tecnologiasur.com', telefono='021 300 002',
+            es_proveedor=True,
+        )
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+        self.url = reverse('empresas:empresa_lista')
+
+    def obtener_empresas(self, termino):
+        """Devuelve los resultados publicados por la vista para un término."""
+        respuesta = self.client.get(self.url, {'q': termino})
+        return respuesta, list(respuesta.context['empresas'])
+
+    def test_busqueda_por_razon_social(self):
+        respuesta, empresas = self.obtener_empresas('FARMACIA CENTRAL')
+        self.assertEqual(empresas, [self.farmacia])
+        self.assertContains(respuesta, 'value="FARMACIA CENTRAL"')
+
+    def test_busqueda_por_ruc(self):
+        _, empresas = self.obtener_empresas('80003000-2')
+        self.assertEqual(empresas, [self.tecnologia])
+
+    def test_busqueda_por_email(self):
+        _, empresas = self.obtener_empresas('CONTACTO@FARMACIACENTRAL.COM')
+        self.assertEqual(empresas, [self.farmacia])
+
+    def test_busqueda_parcial(self):
+        _, empresas = self.obtener_empresas('sur')
+        self.assertEqual(empresas, [self.tecnologia])
+
+    def test_busqueda_sin_coincidencias(self):
+        respuesta, empresas = self.obtener_empresas('empresa inexistente')
+        self.assertEqual(empresas, [])
+        self.assertContains(respuesta, 'No se encontraron empresas')
+        self.assertContains(respuesta, 'Limpiar')
+
+    def test_busqueda_vacia_muestra_todas_las_empresas(self):
+        respuesta, empresas = self.obtener_empresas('   ')
+        self.assertCountEqual(empresas, [self.farmacia, self.tecnologia])
+        self.assertEqual(respuesta.context['termino_busqueda'], '')
+
+    def test_busqueda_requiere_autenticacion(self):
+        self.client.logout()
+        respuesta = self.client.get(self.url, {'q': 'farmacia'})
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn(reverse('login'), respuesta.url)
