@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titulo %}Contactos | Gestión de Empresas{% endblock %}
+{% block titulo_seccion %}Contactos{% endblock %}
+{% block acciones_seccion %}<div class="text-sm-end mt-3 mt-sm-0"><a href="{% url 'empresas:contacto_crear' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo contacto</a></div>{% endblock %}
+{% block contenido %}
+<div class="card"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Contacto</th><th>Empresa</th><th>Cargo</th><th>Teléfono</th><th>Email</th><th class="text-end">Acciones</th></tr></thead><tbody>
+{% for contacto in contactos %}<tr><td><a href="{% url 'empresas:contacto_detalle' contacto.pk %}" class="fw-semibold text-decoration-none">{{ contacto.nombre }} {{ contacto.apellido }}</a></td><td>{{ contacto.empresa.razon_social }}</td><td>{{ contacto.cargo }}</td><td>{{ contacto.telefono }}</td><td>{{ contacto.email }}</td><td class="text-end acciones-tabla"><a href="{% url 'empresas:contacto_detalle' contacto.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a> <a href="{% url 'empresas:contacto_editar' contacto.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a> <a href="{% url 'empresas:contacto_eliminar' contacto.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a></td></tr>{% empty %}<tr><td colspan="6" class="estado-vacio">No hay contactos registrados.</td></tr>{% endfor %}
+</tbody></table></div></div><div class="card-footer">{% include 'includes/pagination.html' %}</div></div>
+{% endblock %}

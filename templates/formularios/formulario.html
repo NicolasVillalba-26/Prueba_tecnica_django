@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo_formulario }} | Gestión de Empresas{% endblock %}
+{% block titulo_seccion %}{{ titulo_formulario }}{% endblock %}
+
+{% block contenido %}
+<div class="row justify-content-center">
+    <div class="col-12 col-xl-9">
+        <div class="card card-primary card-outline">
+            <div class="card-header">
+                <h2 class="card-title mb-0">{{ titulo_formulario }}</h2>
+                {% if subtitulo_formulario %}<div class="text-body-secondary small mt-1">{{ subtitulo_formulario }}</div>{% endif %}
+            </div>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="card-body">
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
+                    {% endif %}
+                    <div class="row g-3">
+                        {% for field in form %}
+                            <div class="{% if field.field.widget.input_type == 'checkbox' and not field.field.widget.allow_multiple_selected %}col-12 col-md-4{% else %}col-12{% endif %}">
+                                {% if field.field.widget.allow_multiple_selected %}
+                                    <fieldset>
+                                        <legend class="form-label fw-semibold fs-6">{{ field.label }}</legend>
+                                        {{ field }}
+                                    </fieldset>
+                                {% elif field.field.widget.input_type == 'checkbox' %}
+                                    <div class="form-check mt-3">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+                                {% else %}
+                                    <label class="form-label fw-semibold" for="{{ field.id_for_label }}">
+                                        {{ field.label }}{% if field.field.required %}<span class="text-danger" aria-label="obligatorio"> *</span>{% endif %}
+                                    </label>
+                                    {{ field }}
+                                {% endif %}
+                                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-end gap-2">
+                    <a href="{% if url_cancelar %}{{ url_cancelar }}{% else %}{% url ruta_cancelar %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1" aria-hidden="true"></i>Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

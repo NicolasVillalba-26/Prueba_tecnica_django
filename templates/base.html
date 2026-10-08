@@ -1,0 +1,44 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titulo %}Gestión de Empresas{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'vendor/adminlte/icons/bootstrap-icons.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/adminlte/css/adminlte.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    {% block estilos %}{% endblock %}
+</head>
+<body class="{% block clase_body %}{% if user.is_authenticated %}layout-fixed sidebar-expand-lg bg-body-tertiary{% else %}login-page bg-body-secondary{% endif %}{% endblock %}">
+    {% if user.is_authenticated %}
+        <div class="app-wrapper">
+            {% include "includes/navbar.html" %}
+            {% include "includes/sidebar.html" %}
+            <main class="app-main">
+                <div class="app-content-header">
+                    <div class="container-fluid">
+                        <div class="row align-items-center">
+                            <div class="col-sm-8"><h1 class="mb-0">{% block titulo_seccion %}Panel principal{% endblock %}</h1></div>
+                            <div class="col-sm-4">{% block acciones_seccion %}{% endblock %}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="app-content">
+                    <div class="container-fluid">
+                        {% include "includes/messages.html" %}
+                        {% block contenido %}{% endblock %}
+                    </div>
+                </div>
+            </main>
+            {% include "includes/footer.html" %}
+        </div>
+    {% else %}
+        {% block contenido_publico %}{% endblock %}
+    {% endif %}
+    <script src="{% static 'vendor/adminlte/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'vendor/adminlte/js/adminlte.min.js' %}"></script>
+    <script src="{% static 'js/app.js' %}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

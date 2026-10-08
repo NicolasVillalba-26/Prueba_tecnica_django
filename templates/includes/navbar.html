@@ -1,0 +1,36 @@
+<nav class="app-header navbar navbar-expand bg-body">
+    <div class="container-fluid">
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <button class="nav-link btn btn-link" type="button" data-lte-toggle="sidebar" aria-label="Expandir o contraer menú lateral">
+                    <i class="bi bi-list" aria-hidden="true"></i>
+                </button>
+            </li>
+            <li class="nav-item d-none d-md-block"><span class="nav-link text-body-secondary">
+                {% with nombre=request.resolver_match.url_name %}
+                    {% if nombre|slice:':8' == 'empresa_' %}Empresas
+                    {% elif nombre|slice:':9' == 'contacto_' %}Contactos
+                    {% elif nombre|slice:':10' == 'direccion_' %}Direcciones
+                    {% elif nombre|slice:':10' == 'categoria_' %}Categorías
+                    {% elif nombre|slice:':13' == 'departamento_' %}Departamentos
+                    {% elif nombre|slice:':7' == 'ciudad_' %}Ciudades
+                    {% else %}Panel principal{% endif %}
+                {% endwith %}
+            </span></li>
+        </ul>
+        <ul class="navbar-nav ms-auto align-items-center">
+            <li class="nav-item d-none d-sm-block">
+                <span class="nav-link"><i class="bi bi-person-circle me-1" aria-hidden="true"></i>{{ user.get_username }}</span>
+            </li>
+            <li class="nav-item">
+                <form method="post" action="{% url 'logout' %}" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-box-arrow-right me-sm-1" aria-hidden="true"></i>
+                        <span class="d-none d-sm-inline">Cerrar sesión</span>
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </div>
+</nav>

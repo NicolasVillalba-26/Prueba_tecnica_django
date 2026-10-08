@@ -1,0 +1,29 @@
+# Entornos virtuales
+.venv/
+.venv-1/
+.venv1/
+venv/
+
+# Variables de entorno; se conserva únicamente el ejemplo público.
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+*.log
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

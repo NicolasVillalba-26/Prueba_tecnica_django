@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titulo %}Departamentos | Gestión de Empresas{% endblock %}
+{% block titulo_seccion %}Departamentos{% endblock %}
+{% block acciones_seccion %}<div class="text-sm-end mt-3 mt-sm-0"><a href="{% url 'ubicaciones:departamento_crear' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo departamento</a></div>{% endblock %}
+{% block contenido %}
+<div class="card"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Nombre</th><th class="text-end">Acciones</th></tr></thead><tbody>
+{% for departamento in departamentos %}<tr><td>{{ departamento.nombre }}</td><td class="text-end acciones-tabla"><a href="{% url 'ubicaciones:departamento_editar' departamento.pk %}" class="btn btn-sm btn-outline-primary" aria-label="Editar {{ departamento }}"><i class="bi bi-pencil"></i></a> <a href="{% url 'ubicaciones:departamento_eliminar' departamento.pk %}" class="btn btn-sm btn-outline-danger" aria-label="Eliminar {{ departamento }}"><i class="bi bi-trash"></i></a></td></tr>{% empty %}<tr><td colspan="2" class="estado-vacio">No hay departamentos registrados.</td></tr>{% endfor %}
+</tbody></table></div></div><div class="card-footer">{% include 'includes/pagination.html' %}</div></div>
+{% endblock %}

@@ -1,0 +1,32 @@
+<aside class="app-sidebar bg-navy shadow" data-bs-theme="dark">
+    <div class="sidebar-brand">
+        <a href="{% url 'principal' %}" class="brand-link text-decoration-none">
+            <span class="marca-lateral" aria-hidden="true">GE</span>
+            <span class="brand-text fw-semibold">Gestión de Empresas</span>
+        </a>
+    </div>
+    <div class="sidebar-wrapper">
+        <nav class="mt-2" aria-label="Navegación principal">
+            <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="menu" data-accordion="false">
+                <li class="nav-header">INICIO</li>
+                <li class="nav-item">
+                    <a href="{% url 'principal' %}" class="nav-link {% if request.resolver_match.url_name == 'principal' %}active{% endif %}">
+                        <i class="nav-icon bi bi-house-door" aria-hidden="true"></i><p>Panel principal</p>
+                    </a>
+                </li>
+                <li class="nav-header">GESTIÓN COMERCIAL</li>
+                <li class="nav-item"><a href="{% url 'empresas:empresa_lista' %}" class="nav-link {% if request.resolver_match.namespace == 'empresas' and request.resolver_match.url_name|slice:':8' == 'empresa_' %}active{% endif %}"><i class="nav-icon bi bi-building" aria-hidden="true"></i><p>Empresas</p></a></li>
+                <li class="nav-item"><a href="{% url 'empresas:contacto_lista' %}" class="nav-link {% if request.resolver_match.namespace == 'empresas' and request.resolver_match.url_name|slice:':9' == 'contacto_' %}active{% endif %}"><i class="nav-icon bi bi-people" aria-hidden="true"></i><p>Contactos</p></a></li>
+                <li class="nav-item"><a href="{% url 'empresas:direccion_lista' %}" class="nav-link {% if request.resolver_match.namespace == 'empresas' and request.resolver_match.url_name|slice:':10' == 'direccion_' %}active{% endif %}"><i class="nav-icon bi bi-geo-alt" aria-hidden="true"></i><p>Direcciones</p></a></li>
+                <li class="nav-item"><a href="{% url 'empresas:categoria_lista' %}" class="nav-link {% if request.resolver_match.namespace == 'empresas' and request.resolver_match.url_name|slice:':10' == 'categoria_' %}active{% endif %}"><i class="nav-icon bi bi-tags" aria-hidden="true"></i><p>Categorías</p></a></li>
+                <li class="nav-header">UBICACIONES</li>
+                <li class="nav-item"><a href="{% url 'ubicaciones:departamento_lista' %}" class="nav-link {% if request.resolver_match.namespace == 'ubicaciones' and 'departamento_' in request.resolver_match.url_name %}active{% endif %}"><i class="nav-icon bi bi-map" aria-hidden="true"></i><p>Departamentos</p></a></li>
+                <li class="nav-item"><a href="{% url 'ubicaciones:ciudad_lista' %}" class="nav-link {% if request.resolver_match.namespace == 'ubicaciones' and 'ciudad_' in request.resolver_match.url_name %}active{% endif %}"><i class="nav-icon bi bi-pin-map" aria-hidden="true"></i><p>Ciudades</p></a></li>
+                {% if user.is_staff %}
+                    <li class="nav-header">SISTEMA</li>
+                    <li class="nav-item"><a href="{% url 'admin:index' %}" class="nav-link"><i class="nav-icon bi bi-shield-lock" aria-hidden="true"></i><p>Django Admin</p></a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</aside>

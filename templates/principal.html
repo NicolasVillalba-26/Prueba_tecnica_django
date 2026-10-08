@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block titulo %}Panel principal | Gestión de Empresas{% endblock %}
+{% block titulo_seccion %}Panel principal{% endblock %}
+
+{% block contenido %}
+<section class="card border-0 mb-4 panel-bienvenida">
+    <div class="card-body p-4 p-lg-5">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-8">
+                <span class="text-primary fw-semibold">Bienvenido al sistema</span>
+                <h2 class="display-6 fw-bold mt-2 mb-3">Hola, {{ user.get_username }}</h2>
+                <p class="lead text-body-secondary mb-0">Administre la información comercial y geográfica desde un espacio centralizado.</p>
+            </div>
+            <div class="col-lg-4 text-lg-end"><i class="bi bi-buildings icono-bienvenida" aria-hidden="true"></i></div>
+        </div>
+    </div>
+</section>
+
+<section aria-labelledby="titulo-modulos">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 id="titulo-modulos" class="h4 mb-0">Módulos del sistema</h2>
+        <span class="text-body-secondary small">Implementación progresiva</span>
+    </div>
+    <div class="row g-4">
+        <div class="col-12 col-md-6 col-xl-4">
+            <article class="card h-100 tarjeta-modulo"><div class="card-body p-4">
+                <div class="icono-modulo bg-primary-subtle text-primary mb-3"><i class="bi bi-building" aria-hidden="true"></i></div>
+                <h3 class="h5">Gestión comercial</h3>
+                <p class="text-body-secondary">Empresas, categorías, contactos y direcciones.</p>
+                <span class="badge text-bg-secondary">Próximamente</span>
+            </div></article>
+        </div>
+        <div class="col-12 col-md-6 col-xl-4">
+            <article class="card h-100 tarjeta-modulo"><div class="card-body p-4">
+                <div class="icono-modulo bg-primary-subtle text-primary mb-3"><i class="bi bi-map" aria-hidden="true"></i></div>
+                <h3 class="h5">Ubicaciones</h3>
+                <p class="text-body-secondary">Departamentos y ciudades relacionados con las direcciones.</p>
+                <span class="badge text-bg-secondary">Próximamente</span>
+            </div></article>
+        </div>
+        {% if user.is_staff %}
+            <div class="col-12 col-md-6 col-xl-4">
+                <article class="card h-100 tarjeta-modulo"><div class="card-body p-4">
+                    <div class="icono-modulo bg-primary-subtle text-primary mb-3"><i class="bi bi-shield-lock" aria-hidden="true"></i></div>
+                    <h3 class="h5">Administración</h3>
+                    <p class="text-body-secondary">Mantenimiento avanzado mediante Django Admin.</p>
+                    <a href="{% url 'admin:index' %}" class="btn btn-outline-primary">Abrir administración</a>
+                </div></article>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

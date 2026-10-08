@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo_eliminacion }} | Gestión de Empresas{% endblock %}
+{% block titulo_seccion %}{{ titulo_eliminacion }}{% endblock %}
+
+{% block contenido %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+        <div class="card card-danger card-outline">
+            <div class="card-body p-4">
+                <div class="d-flex gap-3 align-items-start">
+                    <i class="bi bi-exclamation-triangle text-danger fs-2" aria-hidden="true"></i>
+                    <div>
+                        <h2 class="h5">Confirme la eliminación</h2>
+                        <p>Está a punto de eliminar <strong>{{ object }}</strong>. Esta acción no se puede deshacer.</p>
+                        {% if advertencia_relaciones %}<div class="alert alert-warning mb-0">{{ advertencia_relaciones }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-end gap-2">
+                <a href="{% url ruta_cancelar %}" class="btn btn-outline-secondary">Cancelar</a>
+                <form method="post" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
