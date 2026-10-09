@@ -5,6 +5,8 @@ from django.db.models import Q
 
 from ubicaciones.models import Ciudad
 
+from .validadores import normalizar_ruc, validar_ruc
+
 
 class Categoria(models.Model):
     """Clasifica empresas según su actividad o función comercial."""
@@ -26,9 +28,10 @@ class Empresa(models.Model):
     """Representa una organización cliente, proveedora o ambas."""
 
     razon_social = models.CharField('razón social', max_length=200)
-    # El RUC se trata como texto y sólo se exige unicidad; no se presupone
-    # ningún algoritmo de dígito verificador.
-    ruc = models.CharField('RUC', max_length=30, unique=True)
+    # El validador comprueba la estructura; la base de datos garantiza unicidad.
+    ruc = models.CharField(
+        'RUC', max_length=30, unique=True, validators=[validar_ruc]
+    )
     email = models.EmailField('correo electrónico')
     telefono = models.CharField('teléfono', max_length=30)
     es_cliente = models.BooleanField('es cliente', default=False)
@@ -76,6 +79,7 @@ class Empresa(models.Model):
 
     def clean(self):
         """Valida las reglas comerciales antes de usar formularios o Admin."""
+        self.ruc = normalizar_ruc(self.ruc)
         super().clean()
         if not self.es_cliente and not self.es_proveedor:
             raise ValidationError(

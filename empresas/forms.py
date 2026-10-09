@@ -40,6 +40,12 @@ class EmpresaFormulario(FormularioModeloBootstrap):
             'es_cliente', 'es_proveedor', 'activo', 'categorias',
         )
         widgets = {'categorias': forms.CheckboxSelectMultiple()}
+        error_messages = {
+            'ruc': {
+                'required': 'El RUC es obligatorio.',
+                'unique': 'El RUC ya se encuentra registrado.',
+            },
+        }
 
 
 class ContactoFormulario(FormularioModeloBootstrap):
