@@ -358,3 +358,145 @@ class FiltroTipoEmpresaPruebas(TestCase):
 
         self.assertEqual(respuesta.status_code, 302)
         self.assertIn(reverse('login'), respuesta.url)
+
+
+class PaginacionEmpresasPruebas(TestCase):
+    """Verifica límites, navegación y conservación de filtros."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user(
+            username='paginador', password='Clave-segura-2026'
+        )
+        cls.categoria = Categoria.objects.create(
+            nombre='Categoría paginada', descripcion='Pruebas de paginación'
+        )
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+        self.url = reverse('empresas:empresa_lista')
+
+    def crear_empresas(self, cantidad, prefijo='Empresa'):
+        empresas = Empresa.objects.bulk_create([
+            Empresa(
+                razon_social=f'{prefijo} {indice:03d}',
+                ruc=f'PAG-{indice:05d}',
+                email=f'empresa{indice}@example.com',
+                telefono=f'021 {indice:06d}',
+                es_cliente=True,
+            )
+            for indice in range(cantidad)
+        ])
+        for empresa in empresas:
+            empresa.categorias.add(self.categoria)
+        return empresas
+
+    def test_diez_empresas_no_muestran_controles(self):
+        self.crear_empresas(10)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertFalse(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['empresas']), 10)
+        self.assertNotContains(respuesta, 'Paginación de resultados')
+
+    def test_mas_de_diez_empresas_muestran_primera_pagina(self):
+        self.crear_empresas(25)
+
+        respuesta = self.client.get(self.url)
+        pagina = respuesta.context['page_obj']
+
+        self.assertTrue(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['empresas']), 10)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (1, 10))
+        self.assertContains(respuesta, 'Mostrando 1&ndash;10 de 25 empresas')
+
+    def test_pagina_intermedia_muestra_rango_correcto(self):
+        self.crear_empresas(25)
+
+        respuesta = self.client.get(self.url, {'page': 2})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(pagina.number, 2)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (11, 20))
+        self.assertContains(respuesta, 'Mostrando 11&ndash;20 de 25 empresas')
+
+    def test_ultima_pagina_muestra_solo_restantes(self):
+        self.crear_empresas(25)
+
+        respuesta = self.client.get(self.url, {'page': 3})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(len(respuesta.context['empresas']), 5)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (21, 25))
+
+    def test_pagina_inexistente_devuelve_404(self):
+        self.crear_empresas(11)
+        self.assertEqual(self.client.get(self.url, {'page': 99}).status_code, 404)
+
+    def test_pagina_invalida_devuelve_404(self):
+        self.crear_empresas(11)
+        self.assertEqual(
+            self.client.get(self.url, {'page': 'invalida'}).status_code, 404
+        )
+
+    def test_paginas_no_repiten_empresas(self):
+        self.crear_empresas(20)
+
+        primera = self.client.get(self.url, {'page': 1})
+        primera_ids = {empresa.pk for empresa in primera.context['empresas']}
+        segunda = self.client.get(self.url, {'page': 2})
+        segunda_ids = {empresa.pk for empresa in segunda.context['empresas']}
+
+        self.assertEqual(len(primera_ids | segunda_ids), 20)
+        self.assertTrue(primera_ids.isdisjoint(segunda_ids))
+
+    def test_orden_es_estable_cuando_se_repite_razon_social(self):
+        empresas = self.crear_empresas(12, prefijo='Misma razón')
+        Empresa.objects.filter(pk__in=[empresa.pk for empresa in empresas]).update(
+            razon_social='Misma razón'
+        )
+
+        primera = self.client.get(self.url, {'page': 1})
+        segunda = self.client.get(self.url, {'page': 2})
+        ids = [empresa.pk for empresa in primera.context['empresas']]
+        ids += [empresa.pk for empresa in segunda.context['empresas']]
+
+        self.assertEqual(ids, sorted(ids))
+
+    def test_conserva_busqueda_y_filtro_comercial_en_enlaces(self):
+        self.crear_empresas(15, prefijo='Comercial')
+
+        respuesta = self.client.get(
+            self.url, {'q': 'Comercial', 'tipo': 'clientes'}
+        )
+
+        self.assertEqual(
+            respuesta.context['parametros_paginacion'],
+            'q=Comercial&tipo=clientes',
+        )
+        self.assertContains(
+            respuesta, '?q=Comercial&amp;tipo=clientes&amp;page=2'
+        )
+
+    def test_conserva_categoria_y_descarta_pagina_anterior(self):
+        self.crear_empresas(15)
+
+        respuesta = self.client.get(
+            self.url, {'categoria': self.categoria.pk, 'page': 2}
+        )
+
+        self.assertEqual(
+            respuesta.context['parametros_paginacion'],
+            f'categoria={self.categoria.pk}',
+        )
+        self.assertNotIn('page=', respuesta.context['parametros_paginacion'])
+
+    def test_paginacion_requiere_autenticacion(self):
+        self.crear_empresas(11)
+        self.client.logout()
+
+        respuesta = self.client.get(self.url, {'page': 2})
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn(reverse('login'), respuesta.url)
