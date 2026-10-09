@@ -5,6 +5,8 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
+from config.mixins import ContextoPaginacionMixin
+
 from .forms import CiudadFormulario, DepartamentoFormulario
 from .models import Ciudad, Departamento
 
@@ -77,14 +79,18 @@ class DepartamentoEliminarVista(LoginRequiredMixin, EliminacionProtegidaMixin, D
         return contexto
 
 
-class CiudadListaVista(LoginRequiredMixin, ListView):
+class CiudadListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
     model = Ciudad
     template_name = 'ubicaciones/ciudad_lista.html'
     context_object_name = 'ciudades'
-    paginate_by = 20
+    paginate_by = 10
+    nombre_registros = 'ciudades'
 
     def get_queryset(self):
-        return Ciudad.objects.select_related('departamento')
+        """Obtiene cada departamento y aplica un orden estable."""
+        return Ciudad.objects.select_related('departamento').order_by(
+            'nombre', 'departamento__nombre', 'pk'
+        )
 
 
 class CiudadCrearVista(LoginRequiredMixin, MensajeFormularioMixin, CreateView):

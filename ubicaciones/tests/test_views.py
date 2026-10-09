@@ -111,3 +111,154 @@ class CrudUbicacionesPruebas(TestCase):
             reverse('ubicaciones:departamento_editar', args=[999999])
         )
         self.assertEqual(respuesta.status_code, 404)
+
+
+class PaginacionCiudadesPruebas(TestCase):
+    """Verifica la paginación y las relaciones del listado de ciudades."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user(
+            username='paginador_ciudades', password='Clave-segura-2026'
+        )
+        cls.departamento = Departamento.objects.create(nombre='Departamento A')
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+        self.url = reverse('ubicaciones:ciudad_lista')
+
+    def crear_ciudades(self, cantidad):
+        return Ciudad.objects.bulk_create([
+            Ciudad(
+                nombre=f'Ciudad {indice:03d}',
+                departamento=self.departamento,
+            )
+            for indice in range(cantidad)
+        ])
+
+    def test_menos_de_diez_ciudades_no_muestran_controles(self):
+        self.crear_ciudades(9)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertFalse(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['ciudades']), 9)
+        self.assertNotContains(respuesta, 'Paginación de resultados')
+
+    def test_diez_ciudades_no_muestran_controles(self):
+        self.crear_ciudades(10)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertFalse(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['ciudades']), 10)
+
+    def test_mas_de_diez_ciudades_activan_paginacion(self):
+        self.crear_ciudades(11)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertTrue(respuesta.context['is_paginated'])
+        self.assertContains(respuesta, 'Paginación de resultados')
+
+    def test_primera_pagina_muestra_diez_ciudades(self):
+        self.crear_ciudades(25)
+
+        respuesta = self.client.get(self.url)
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(len(respuesta.context['ciudades']), 10)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (1, 10))
+        self.assertContains(respuesta, 'Mostrando 1&ndash;10 de 25 ciudades')
+
+    def test_pagina_intermedia_muestra_rango_correcto(self):
+        self.crear_ciudades(25)
+
+        respuesta = self.client.get(self.url, {'page': 2})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(pagina.number, 2)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (11, 20))
+        self.assertContains(respuesta, 'Mostrando 11&ndash;20 de 25 ciudades')
+
+    def test_ultima_pagina_muestra_ciudades_restantes(self):
+        self.crear_ciudades(25)
+
+        respuesta = self.client.get(self.url, {'page': 3})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(len(respuesta.context['ciudades']), 5)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (21, 25))
+
+    def test_pagina_inexistente_devuelve_404(self):
+        self.crear_ciudades(11)
+        self.assertEqual(self.client.get(self.url, {'page': 99}).status_code, 404)
+
+    def test_pagina_invalida_devuelve_404(self):
+        self.crear_ciudades(11)
+        self.assertEqual(
+            self.client.get(self.url, {'page': 'invalida'}).status_code, 404
+        )
+
+    def test_orden_alfabetico_se_conserva_entre_paginas(self):
+        nombres = [
+            'Zulu', 'Alfa', 'Hotel', 'Bravo', 'India', 'Charlie',
+            'Juliet', 'Delta', 'Kilo', 'Echo', 'Lima', 'Foxtrot',
+        ]
+        Ciudad.objects.bulk_create([
+            Ciudad(nombre=nombre, departamento=self.departamento)
+            for nombre in nombres
+        ])
+
+        primera = self.client.get(self.url, {'page': 1})
+        segunda = self.client.get(self.url, {'page': 2})
+        obtenidos = [ciudad.nombre for ciudad in primera.context['ciudades']]
+        obtenidos += [ciudad.nombre for ciudad in segunda.context['ciudades']]
+
+        self.assertEqual(obtenidos, sorted(nombres))
+
+    def test_muestra_departamento_asociado(self):
+        Ciudad.objects.create(nombre='Ciudad relacionada', departamento=self.departamento)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertContains(respuesta, self.departamento.nombre)
+        self.assertEqual(
+            respuesta.context['ciudades'][0].departamento,
+            self.departamento,
+        )
+
+    def test_conserva_parametros_get_vigentes(self):
+        self.crear_ciudades(11)
+
+        respuesta = self.client.get(
+            self.url, {'departamento': self.departamento.pk}
+        )
+
+        self.assertEqual(
+            respuesta.context['parametros_paginacion'],
+            f'departamento={self.departamento.pk}',
+        )
+        self.assertContains(
+            respuesta, f'?departamento={self.departamento.pk}&amp;page=2'
+        )
+
+    def test_paginas_no_repiten_ciudades(self):
+        self.crear_ciudades(20)
+
+        primera = self.client.get(self.url, {'page': 1})
+        primera_ids = {ciudad.pk for ciudad in primera.context['ciudades']}
+        segunda = self.client.get(self.url, {'page': 2})
+        segunda_ids = {ciudad.pk for ciudad in segunda.context['ciudades']}
+
+        self.assertEqual(len(primera_ids | segunda_ids), 20)
+        self.assertTrue(primera_ids.isdisjoint(segunda_ids))
+
+    def test_paginacion_requiere_autenticacion(self):
+        self.crear_ciudades(11)
+        self.client.logout()
+
+        respuesta = self.client.get(self.url, {'page': 2})
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn(reverse('login'), respuesta.url)
