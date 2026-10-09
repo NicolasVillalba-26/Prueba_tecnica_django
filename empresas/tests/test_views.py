@@ -644,3 +644,165 @@ class PaginacionContactosPruebas(TestCase):
 
         self.assertEqual(respuesta.status_code, 302)
         self.assertIn(reverse('login'), respuesta.url)
+
+
+class PaginacionDireccionesPruebas(TestCase):
+    """Verifica la paginación nativa del listado general de direcciones."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user(
+            username='paginador_direcciones', password='Clave-segura-2026'
+        )
+        cls.departamento = Departamento.objects.create(nombre='Itapúa')
+        cls.ciudad = Ciudad.objects.create(
+            nombre='Encarnación', departamento=cls.departamento
+        )
+        cls.empresa = Empresa.objects.create(
+            razon_social='Empresa de direcciones S.A.',
+            ruc='PAG-DIRECCIONES-1',
+            email='direcciones@example.com',
+            telefono='071 700 000',
+            es_cliente=True,
+        )
+        cls.contacto = Contacto.objects.create(
+            empresa=cls.empresa,
+            nombre='Contacto',
+            apellido='Direcciones',
+            email='contacto.direcciones@example.com',
+            telefono='0985 700 000',
+            cargo='Encargado',
+        )
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+        self.url = reverse('empresas:direccion_lista')
+
+    def crear_direcciones(self, cantidad):
+        return Direccion.objects.bulk_create([
+            Direccion(
+                contacto=self.contacto,
+                direccion=f'Calle de prueba {indice:03d}',
+                codigo_postal=f'{indice:04d}',
+                tipo=Direccion.Tipo.LABORAL,
+                ciudad=self.ciudad,
+            )
+            for indice in range(cantidad)
+        ])
+
+    def test_menos_de_diez_direcciones_no_muestran_controles(self):
+        self.crear_direcciones(9)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertFalse(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['direcciones']), 9)
+        self.assertNotContains(respuesta, 'Paginación de resultados')
+
+    def test_diez_direcciones_no_muestran_controles(self):
+        self.crear_direcciones(10)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertFalse(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['direcciones']), 10)
+
+    def test_mas_de_diez_direcciones_activan_paginacion(self):
+        self.crear_direcciones(11)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertTrue(respuesta.context['is_paginated'])
+        self.assertContains(respuesta, 'Paginación de resultados')
+
+    def test_primera_pagina_muestra_diez_direcciones(self):
+        self.crear_direcciones(25)
+
+        respuesta = self.client.get(self.url)
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(len(respuesta.context['direcciones']), 10)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (1, 10))
+        self.assertContains(respuesta, 'Mostrando 1&ndash;10 de 25 direcciones')
+
+    def test_pagina_intermedia_muestra_rango_correcto(self):
+        self.crear_direcciones(25)
+
+        respuesta = self.client.get(self.url, {'page': 2})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(pagina.number, 2)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (11, 20))
+        self.assertContains(
+            respuesta, 'Mostrando 11&ndash;20 de 25 direcciones'
+        )
+
+    def test_ultima_pagina_muestra_direcciones_restantes(self):
+        self.crear_direcciones(25)
+
+        respuesta = self.client.get(self.url, {'page': 3})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(len(respuesta.context['direcciones']), 5)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (21, 25))
+
+    def test_pagina_inexistente_devuelve_404(self):
+        self.crear_direcciones(11)
+        self.assertEqual(self.client.get(self.url, {'page': 99}).status_code, 404)
+
+    def test_pagina_invalida_devuelve_404(self):
+        self.crear_direcciones(11)
+        self.assertEqual(
+            self.client.get(self.url, {'page': 'invalida'}).status_code, 404
+        )
+
+    def test_orden_es_estable_por_identificador(self):
+        direcciones = self.crear_direcciones(12)
+
+        primera = self.client.get(self.url, {'page': 1})
+        segunda = self.client.get(self.url, {'page': 2})
+        ids = [direccion.pk for direccion in primera.context['direcciones']]
+        ids += [direccion.pk for direccion in segunda.context['direcciones']]
+
+        self.assertEqual(ids, [direccion.pk for direccion in direcciones])
+
+    def test_conserva_parametros_get_vigentes(self):
+        self.crear_direcciones(11)
+
+        respuesta = self.client.get(
+            self.url,
+            {'contacto': self.contacto.pk, 'ciudad': self.ciudad.pk},
+        )
+
+        self.assertEqual(
+            respuesta.context['parametros_paginacion'],
+            f'contacto={self.contacto.pk}&ciudad={self.ciudad.pk}',
+        )
+        self.assertContains(
+            respuesta,
+            f'?contacto={self.contacto.pk}&amp;ciudad={self.ciudad.pk}&amp;page=2',
+        )
+
+    def test_paginas_no_repiten_direcciones(self):
+        self.crear_direcciones(20)
+
+        primera = self.client.get(self.url, {'page': 1})
+        primera_ids = {
+            direccion.pk for direccion in primera.context['direcciones']
+        }
+        segunda = self.client.get(self.url, {'page': 2})
+        segunda_ids = {
+            direccion.pk for direccion in segunda.context['direcciones']
+        }
+
+        self.assertEqual(len(primera_ids | segunda_ids), 20)
+        self.assertTrue(primera_ids.isdisjoint(segunda_ids))
+
+    def test_paginacion_requiere_autenticacion(self):
+        self.crear_direcciones(11)
+        self.client.logout()
+
+        respuesta = self.client.get(self.url, {'page': 2})
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn(reverse('login'), respuesta.url)

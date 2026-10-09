@@ -293,16 +293,18 @@ class ContactoEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
         return contexto
 
 
-class DireccionListaVista(LoginRequiredMixin, ListView):
+class DireccionListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
     model = Direccion
     template_name = 'empresas/direccion_lista.html'
     context_object_name = 'direcciones'
-    paginate_by = 20
+    paginate_by = 10
+    nombre_registros = 'direcciones'
 
     def get_queryset(self):
+        """Obtiene las relaciones visibles y conserva un orden determinista."""
         return Direccion.objects.select_related(
             'contacto', 'contacto__empresa', 'ciudad', 'ciudad__departamento'
-        )
+        ).order_by('pk')
 
 
 class DireccionCrearVista(LoginRequiredMixin, MensajeFormularioMixin, CreateView):
