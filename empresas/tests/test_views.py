@@ -500,3 +500,147 @@ class PaginacionEmpresasPruebas(TestCase):
 
         self.assertEqual(respuesta.status_code, 302)
         self.assertIn(reverse('login'), respuesta.url)
+
+
+class PaginacionContactosPruebas(TestCase):
+    """Verifica la paginación nativa del listado general de contactos."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user(
+            username='paginador_contactos', password='Clave-segura-2026'
+        )
+        cls.empresa = Empresa.objects.create(
+            razon_social='Empresa de contactos S.A.',
+            ruc='PAG-CONTACTOS-1',
+            email='contactos@example.com',
+            telefono='021 700 000',
+            es_cliente=True,
+        )
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+        self.url = reverse('empresas:contacto_lista')
+
+    def crear_contactos(self, cantidad, apellido='Apellido'):
+        return Contacto.objects.bulk_create([
+            Contacto(
+                empresa=self.empresa,
+                nombre=f'Nombre {indice:03d}',
+                apellido=apellido,
+                email=f'contacto{indice}@example.com',
+                telefono=f'0981 {indice:06d}',
+                cargo='Contacto de prueba',
+            )
+            for indice in range(cantidad)
+        ])
+
+    def test_menos_de_diez_contactos_no_muestran_controles(self):
+        self.crear_contactos(9)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertFalse(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['contactos']), 9)
+        self.assertNotContains(respuesta, 'Paginación de resultados')
+
+    def test_diez_contactos_no_muestran_controles(self):
+        self.crear_contactos(10)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertFalse(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['contactos']), 10)
+
+    def test_mas_de_diez_contactos_activan_paginacion(self):
+        self.crear_contactos(11)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertTrue(respuesta.context['is_paginated'])
+        self.assertContains(respuesta, 'Paginación de resultados')
+
+    def test_primera_pagina_muestra_diez_contactos(self):
+        self.crear_contactos(25)
+
+        respuesta = self.client.get(self.url)
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(len(respuesta.context['contactos']), 10)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (1, 10))
+        self.assertContains(respuesta, 'Mostrando 1&ndash;10 de 25 contactos')
+
+    def test_pagina_intermedia_muestra_rango_correcto(self):
+        self.crear_contactos(25)
+
+        respuesta = self.client.get(self.url, {'page': 2})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(pagina.number, 2)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (11, 20))
+        self.assertContains(respuesta, 'Mostrando 11&ndash;20 de 25 contactos')
+
+    def test_ultima_pagina_muestra_contactos_restantes(self):
+        self.crear_contactos(25)
+
+        respuesta = self.client.get(self.url, {'page': 3})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(len(respuesta.context['contactos']), 5)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (21, 25))
+
+    def test_pagina_inexistente_devuelve_404(self):
+        self.crear_contactos(11)
+        self.assertEqual(self.client.get(self.url, {'page': 99}).status_code, 404)
+
+    def test_pagina_invalida_devuelve_404(self):
+        self.crear_contactos(11)
+        self.assertEqual(
+            self.client.get(self.url, {'page': 'invalida'}).status_code, 404
+        )
+
+    def test_orden_es_estable_por_apellido_nombre_e_identificador(self):
+        contactos = self.crear_contactos(12, apellido='Mismo apellido')
+        Contacto.objects.filter(
+            pk__in=[contacto.pk for contacto in contactos]
+        ).update(nombre='Mismo nombre')
+
+        primera = self.client.get(self.url, {'page': 1})
+        segunda = self.client.get(self.url, {'page': 2})
+        ids = [contacto.pk for contacto in primera.context['contactos']]
+        ids += [contacto.pk for contacto in segunda.context['contactos']]
+
+        self.assertEqual(ids, sorted(ids))
+
+    def test_conserva_parametro_get_de_empresa(self):
+        self.crear_contactos(11)
+
+        respuesta = self.client.get(self.url, {'empresa': self.empresa.pk})
+
+        self.assertEqual(
+            respuesta.context['parametros_paginacion'],
+            f'empresa={self.empresa.pk}',
+        )
+        self.assertContains(
+            respuesta, f'?empresa={self.empresa.pk}&amp;page=2'
+        )
+
+    def test_paginas_no_repiten_contactos(self):
+        self.crear_contactos(20)
+
+        primera = self.client.get(self.url, {'page': 1})
+        primera_ids = {contacto.pk for contacto in primera.context['contactos']}
+        segunda = self.client.get(self.url, {'page': 2})
+        segunda_ids = {contacto.pk for contacto in segunda.context['contactos']}
+
+        self.assertEqual(len(primera_ids | segunda_ids), 20)
+        self.assertTrue(primera_ids.isdisjoint(segunda_ids))
+
+    def test_paginacion_requiere_autenticacion(self):
+        self.crear_contactos(11)
+        self.client.logout()
+
+        respuesta = self.client.get(self.url, {'page': 2})
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn(reverse('login'), respuesta.url)

@@ -42,6 +42,30 @@ class EliminacionMixin:
         return respuesta
 
 
+class ContextoPaginacionMixin:
+    """Prepara enlaces paginados conservando los parámetros GET activos."""
+
+    nombre_registros = 'registros'
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        parametros_paginacion = self.request.GET.copy()
+        parametros_paginacion.pop('page', None)
+        contexto['parametros_paginacion'] = parametros_paginacion.urlencode()
+        contexto['nombre_registros'] = self.nombre_registros
+
+        if contexto['is_paginated']:
+            contexto['rango_paginas'] = contexto[
+                'paginator'
+            ].get_elided_page_range(
+                contexto['page_obj'].number,
+                on_each_side=2,
+                on_ends=1,
+            )
+            contexto['indicador_elipsis'] = contexto['paginator'].ELLIPSIS
+        return contexto
+
+
 class CategoriaListaVista(LoginRequiredMixin, ListView):
     model = Categoria
     template_name = 'empresas/categoria_lista.html'
@@ -83,11 +107,12 @@ class CategoriaEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
         return contexto
 
 
-class EmpresaListaVista(LoginRequiredMixin, ListView):
+class EmpresaListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
     model = Empresa
     template_name = 'empresas/empresa_lista.html'
     context_object_name = 'empresas'
     paginate_by = 10
+    nombre_registros = 'empresas'
     tipos_permitidos = {'todos', 'clientes', 'proveedores', 'ambos'}
 
     def get_queryset(self):
@@ -124,20 +149,6 @@ class EmpresaListaVista(LoginRequiredMixin, ListView):
         contexto['hay_filtros'] = (
             bool(self.termino_busqueda) or self.tipo_empresa != 'todos'
         )
-        parametros_paginacion = self.request.GET.copy()
-        parametros_paginacion.pop('page', None)
-        contexto['parametros_paginacion'] = parametros_paginacion.urlencode()
-        contexto['nombre_registros'] = 'empresas'
-
-        if contexto['is_paginated']:
-            contexto['rango_paginas'] = contexto[
-                'paginator'
-            ].get_elided_page_range(
-                contexto['page_obj'].number,
-                on_each_side=2,
-                on_ends=1,
-            )
-            contexto['indicador_elipsis'] = contexto['paginator'].ELLIPSIS
         return contexto
 
 
@@ -198,14 +209,18 @@ class EmpresaEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
         return contexto
 
 
-class ContactoListaVista(LoginRequiredMixin, ListView):
+class ContactoListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
     model = Contacto
     template_name = 'empresas/contacto_lista.html'
     context_object_name = 'contactos'
-    paginate_by = 20
+    paginate_by = 10
+    nombre_registros = 'contactos'
 
     def get_queryset(self):
-        return Contacto.objects.select_related('empresa')
+        """Obtiene contactos y sus empresas con un orden estable."""
+        return Contacto.objects.select_related('empresa').order_by(
+            'apellido', 'nombre', 'pk'
+        )
 
 
 class ContactoDetalleVista(LoginRequiredMixin, DetailView):
