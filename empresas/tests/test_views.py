@@ -806,3 +806,147 @@ class PaginacionDireccionesPruebas(TestCase):
 
         self.assertEqual(respuesta.status_code, 302)
         self.assertIn(reverse('login'), respuesta.url)
+
+
+class PaginacionCategoriasPruebas(TestCase):
+    """Verifica la paginación y el orden del listado de categorías."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user(
+            username='paginador_categorias', password='Clave-segura-2026'
+        )
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+        self.url = reverse('empresas:categoria_lista')
+
+    def crear_categorias(self, cantidad):
+        return Categoria.objects.bulk_create([
+            Categoria(
+                nombre=f'Categoría {indice:03d}',
+                descripcion=f'Descripción de categoría {indice:03d}',
+            )
+            for indice in range(cantidad)
+        ])
+
+    def test_menos_de_diez_categorias_no_muestran_controles(self):
+        self.crear_categorias(9)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertFalse(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['categorias']), 9)
+        self.assertNotContains(respuesta, 'Paginación de resultados')
+
+    def test_diez_categorias_no_muestran_controles(self):
+        self.crear_categorias(10)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertFalse(respuesta.context['is_paginated'])
+        self.assertEqual(len(respuesta.context['categorias']), 10)
+
+    def test_mas_de_diez_categorias_activan_paginacion(self):
+        self.crear_categorias(11)
+
+        respuesta = self.client.get(self.url)
+
+        self.assertTrue(respuesta.context['is_paginated'])
+        self.assertContains(respuesta, 'Paginación de resultados')
+
+    def test_primera_pagina_muestra_diez_categorias(self):
+        self.crear_categorias(25)
+
+        respuesta = self.client.get(self.url)
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(len(respuesta.context['categorias']), 10)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (1, 10))
+        self.assertContains(respuesta, 'Mostrando 1&ndash;10 de 25 categorías')
+
+    def test_pagina_intermedia_muestra_rango_correcto(self):
+        self.crear_categorias(25)
+
+        respuesta = self.client.get(self.url, {'page': 2})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(pagina.number, 2)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (11, 20))
+        self.assertContains(
+            respuesta, 'Mostrando 11&ndash;20 de 25 categorías'
+        )
+
+    def test_ultima_pagina_muestra_categorias_restantes(self):
+        self.crear_categorias(25)
+
+        respuesta = self.client.get(self.url, {'page': 3})
+        pagina = respuesta.context['page_obj']
+
+        self.assertEqual(len(respuesta.context['categorias']), 5)
+        self.assertEqual((pagina.start_index(), pagina.end_index()), (21, 25))
+
+    def test_pagina_inexistente_devuelve_404(self):
+        self.crear_categorias(11)
+        self.assertEqual(self.client.get(self.url, {'page': 99}).status_code, 404)
+
+    def test_pagina_invalida_devuelve_404(self):
+        self.crear_categorias(11)
+        self.assertEqual(
+            self.client.get(self.url, {'page': 'invalida'}).status_code, 404
+        )
+
+    def test_orden_alfabetico_se_conserva_entre_paginas(self):
+        nombres = [
+            'Zulu', 'Alfa', 'Hotel', 'Bravo', 'India', 'Charlie',
+            'Juliet', 'Delta', 'Kilo', 'Echo', 'Lima', 'Foxtrot',
+        ]
+        Categoria.objects.bulk_create([
+            Categoria(nombre=nombre, descripcion='Orden alfabético')
+            for nombre in nombres
+        ])
+
+        primera = self.client.get(self.url, {'page': 1})
+        segunda = self.client.get(self.url, {'page': 2})
+        obtenidos = [
+            categoria.nombre for categoria in primera.context['categorias']
+        ]
+        obtenidos += [
+            categoria.nombre for categoria in segunda.context['categorias']
+        ]
+
+        self.assertEqual(obtenidos, sorted(nombres))
+
+    def test_conserva_parametros_get_vigentes(self):
+        self.crear_categorias(11)
+
+        respuesta = self.client.get(self.url, {'estado': 'activo'})
+
+        self.assertEqual(
+            respuesta.context['parametros_paginacion'], 'estado=activo'
+        )
+        self.assertContains(respuesta, '?estado=activo&amp;page=2')
+
+    def test_paginas_no_repiten_categorias(self):
+        self.crear_categorias(20)
+
+        primera = self.client.get(self.url, {'page': 1})
+        primera_ids = {
+            categoria.pk for categoria in primera.context['categorias']
+        }
+        segunda = self.client.get(self.url, {'page': 2})
+        segunda_ids = {
+            categoria.pk for categoria in segunda.context['categorias']
+        }
+
+        self.assertEqual(len(primera_ids | segunda_ids), 20)
+        self.assertTrue(primera_ids.isdisjoint(segunda_ids))
+
+    def test_paginacion_requiere_autenticacion(self):
+        self.crear_categorias(11)
+        self.client.logout()
+
+        respuesta = self.client.get(self.url, {'page': 2})
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn(reverse('login'), respuesta.url)

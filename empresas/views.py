@@ -66,11 +66,16 @@ class ContextoPaginacionMixin:
         return contexto
 
 
-class CategoriaListaVista(LoginRequiredMixin, ListView):
+class CategoriaListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
     model = Categoria
     template_name = 'empresas/categoria_lista.html'
     context_object_name = 'categorias'
-    paginate_by = 20
+    paginate_by = 10
+    nombre_registros = 'categorías'
+
+    def get_queryset(self):
+        """Ordena alfabéticamente con un criterio secundario estable."""
+        return Categoria.objects.order_by('nombre', 'pk')
 
 
 class CategoriaCrearVista(LoginRequiredMixin, MensajeFormularioMixin, CreateView):
