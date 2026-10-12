@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block titulo %}Acceso denegado | Gestión de Empresas{% endblock %}
+{% block titulo_seccion %}Acceso denegado{% endblock %}
+
+{% block contenido %}
+<div class="card card-warning card-outline">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-shield-lock display-4 text-warning" aria-hidden="true"></i>
+        <h2 class="h4 mt-3">No tiene permiso para realizar esta operación</h2>
+        <p class="text-body-secondary">Solicite acceso a un administrador si necesita utilizar esta función.</p>
+        <a href="{% url 'principal' %}" class="btn btn-primary">Volver al panel principal</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.db.models.deletion import RestrictedError
 from django.test import TestCase
 from django.urls import reverse
@@ -19,6 +20,7 @@ class EliminacionesRelacionadasPruebas(TestCase):
         )
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
 
     def crear_relaciones(self, sufijo='1'):

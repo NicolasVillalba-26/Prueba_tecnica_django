@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
@@ -37,6 +38,11 @@ class AuditoriaEmpresaPruebas(TestCase):
         }
         datos.update(cambios)
         return datos
+
+    def setUp(self):
+        permisos = Permission.objects.all()
+        self.creador.user_permissions.set(permisos)
+        self.editor.user_permissions.set(permisos)
 
     def crear_desde_vista(self, **cambios):
         """Crea una empresa mediante el flujo web autenticado."""

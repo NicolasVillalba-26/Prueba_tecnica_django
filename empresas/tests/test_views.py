@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
@@ -70,6 +71,7 @@ class CrudEmpresasPruebas(TestCase):
         )
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
 
     def test_listados_requieren_autenticacion(self):
@@ -224,6 +226,7 @@ class BusquedaEmpresasPruebas(TestCase):
         )
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
         self.url = reverse('empresas:empresa_lista')
 
@@ -292,6 +295,7 @@ class FiltroTipoEmpresaPruebas(TestCase):
         )
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
         self.url = reverse('empresas:empresa_lista')
 
@@ -360,6 +364,105 @@ class FiltroTipoEmpresaPruebas(TestCase):
         self.assertIn(reverse('login'), respuesta.url)
 
 
+class FiltroCategoriaEmpresaPruebas(TestCase):
+    """Verifica el filtro por categorÃ­a y su combinaciÃ³n con otros criterios."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user(
+            username='filtro_categorias', password='Clave-segura-2026'
+        )
+        cls.servicios = Categoria.objects.create(
+            nombre='Servicios', descripcion='Servicios profesionales'
+        )
+        cls.tecnologia = Categoria.objects.create(
+            nombre='TecnologÃ­a', descripcion='Soluciones tecnolÃ³gicas'
+        )
+        cls.sin_empresas = Categoria.objects.create(
+            nombre='Sin empresas', descripcion='CategorÃ­a vacÃ­a'
+        )
+        cls.consultora = Empresa.objects.create(
+            razon_social='Consultora Integral S.A.', ruc='80007000-1',
+            email='contacto@consultora.com', telefono='021 700 001',
+            es_cliente=True,
+        )
+        cls.proveedora = Empresa.objects.create(
+            razon_social='TecnologÃ­a Proveedora S.A.', ruc='80008000-2',
+            email='ventas@tecnologia.com', telefono='021 800 002',
+            es_proveedor=True,
+        )
+        cls.sin_categoria = Empresa.objects.create(
+            razon_social='Empresa Independiente S.A.', ruc='80009000-3',
+            email='contacto@independiente.com', telefono='021 900 003',
+            es_cliente=True,
+        )
+        cls.consultora.categorias.add(cls.servicios, cls.tecnologia)
+        cls.proveedora.categorias.add(cls.tecnologia)
+
+    def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
+        self.client.force_login(self.usuario)
+        self.url = reverse('empresas:empresa_lista')
+
+    def obtener_empresas(self, **parametros):
+        respuesta = self.client.get(self.url, parametros)
+        return respuesta, list(respuesta.context['empresas'])
+
+    def test_filtra_por_categoria_existente(self):
+        respuesta, empresas = self.obtener_empresas(
+            categoria=self.servicios.pk
+        )
+
+        self.assertEqual(empresas, [self.consultora])
+        self.assertEqual(
+            respuesta.context['categoria_seleccionada'], self.servicios.pk
+        )
+        self.assertContains(
+            respuesta, f'value="{self.servicios.pk}" selected'
+        )
+
+    def test_categoria_sin_empresas_devuelve_resultados_vacios(self):
+        _, empresas = self.obtener_empresas(categoria=self.sin_empresas.pk)
+        self.assertEqual(empresas, [])
+
+    def test_empresa_con_varias_categorias_aparece_en_cada_filtro(self):
+        for categoria in (self.servicios, self.tecnologia):
+            with self.subTest(categoria=categoria.nombre):
+                _, empresas = self.obtener_empresas(categoria=categoria.pk)
+                self.assertIn(self.consultora, empresas)
+
+    def test_sin_filtro_incluye_empresa_sin_categorias(self):
+        _, empresas = self.obtener_empresas()
+        self.assertIn(self.sin_categoria, empresas)
+
+    def test_identificador_invalido_devuelve_resultados_vacios(self):
+        respuesta, empresas = self.obtener_empresas(categoria='invalida')
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(empresas, [])
+
+    def test_categoria_inexistente_devuelve_resultados_vacios(self):
+        respuesta, empresas = self.obtener_empresas(categoria=999999)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(empresas, [])
+
+    def test_combina_categoria_con_busqueda(self):
+        _, empresas = self.obtener_empresas(
+            categoria=self.tecnologia.pk, q='consultora'
+        )
+        self.assertEqual(empresas, [self.consultora])
+
+    def test_combina_categoria_con_condicion_comercial(self):
+        _, empresas = self.obtener_empresas(
+            categoria=self.tecnologia.pk, tipo='proveedores'
+        )
+        self.assertEqual(empresas, [self.proveedora])
+
+    def test_filtro_no_duplica_empresas(self):
+        _, empresas = self.obtener_empresas(categoria=self.tecnologia.pk)
+        identificadores = [empresa.pk for empresa in empresas]
+        self.assertEqual(len(identificadores), len(set(identificadores)))
+
+
 class PaginacionEmpresasPruebas(TestCase):
     """Verifica límites, navegación y conservación de filtros."""
 
@@ -373,6 +476,7 @@ class PaginacionEmpresasPruebas(TestCase):
         )
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
         self.url = reverse('empresas:empresa_lista')
 
@@ -519,6 +623,7 @@ class PaginacionContactosPruebas(TestCase):
         )
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
         self.url = reverse('empresas:contacto_lista')
 
@@ -675,6 +780,7 @@ class PaginacionDireccionesPruebas(TestCase):
         )
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
         self.url = reverse('empresas:direccion_lista')
 
@@ -818,6 +924,7 @@ class PaginacionCategoriasPruebas(TestCase):
         )
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
         self.url = reverse('empresas:categoria_lista')
 

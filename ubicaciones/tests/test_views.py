@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import TestCase
 from django.urls import reverse
 
@@ -19,6 +20,7 @@ class CrudUbicacionesPruebas(TestCase):
         )
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
 
     def test_rutas_requieren_autenticacion(self):
@@ -124,6 +126,7 @@ class PaginacionCiudadesPruebas(TestCase):
         cls.departamento = Departamento.objects.create(nombre='Departamento A')
 
     def setUp(self):
+        self.usuario.user_permissions.set(Permission.objects.all())
         self.client.force_login(self.usuario)
         self.url = reverse('ubicaciones:ciudad_lista')
 

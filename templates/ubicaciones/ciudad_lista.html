@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block titulo %}Ciudades | Gestión de Empresas{% endblock %}
 {% block titulo_seccion %}Ciudades{% endblock %}
-{% block acciones_seccion %}<div class="text-sm-end mt-3 mt-sm-0"><a href="{% url 'ubicaciones:ciudad_crear' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nueva ciudad</a></div>{% endblock %}
+{% block acciones_seccion %}{% if perms.ubicaciones.add_ciudad %}<div class="text-sm-end mt-3 mt-sm-0"><a href="{% url 'ubicaciones:ciudad_crear' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nueva ciudad</a></div>{% endif %}{% endblock %}
 {% block contenido %}
 <div class="card"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Ciudad</th><th>Departamento</th><th class="text-end">Acciones</th></tr></thead><tbody>
-{% for ciudad in ciudades %}<tr><td>{{ ciudad.nombre }}</td><td>{{ ciudad.departamento.nombre }}</td><td class="text-end acciones-tabla"><a href="{% url 'ubicaciones:ciudad_editar' ciudad.pk %}" class="btn btn-sm btn-outline-primary" aria-label="Editar {{ ciudad }}"><i class="bi bi-pencil"></i></a> <a href="{% url 'ubicaciones:ciudad_eliminar' ciudad.pk %}" class="btn btn-sm btn-outline-danger" aria-label="Eliminar {{ ciudad }}"><i class="bi bi-trash"></i></a></td></tr>{% empty %}<tr><td colspan="3" class="estado-vacio">No hay ciudades registradas.</td></tr>{% endfor %}
+{% for ciudad in ciudades %}<tr><td>{{ ciudad.nombre }}</td><td>{{ ciudad.departamento.nombre }}</td><td class="text-end acciones-tabla">{% if perms.ubicaciones.change_ciudad %}<a href="{% url 'ubicaciones:ciudad_editar' ciudad.pk %}" class="btn btn-sm btn-outline-primary" aria-label="Editar {{ ciudad }}"><i class="bi bi-pencil"></i></a>{% endif %} {% if perms.ubicaciones.delete_ciudad %}<a href="{% url 'ubicaciones:ciudad_eliminar' ciudad.pk %}" class="btn btn-sm btn-outline-danger" aria-label="Eliminar {{ ciudad }}"><i class="bi bi-trash"></i></a>{% endif %}</td></tr>{% empty %}<tr><td colspan="3" class="estado-vacio">No hay ciudades registradas.</td></tr>{% endfor %}
 </tbody></table></div></div><div class="card-footer">{% include 'includes/pagination.html' %}</div></div>
 {% endblock %}

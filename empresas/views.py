@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.urls import reverse, reverse_lazy
@@ -11,7 +11,7 @@ from django.views.generic import (
     UpdateView,
 )
 
-from config.mixins import ContextoPaginacionMixin
+from config.mixins import ContextoPaginacionMixin, MensajeFormularioMixin
 
 from .forms import (
     CategoriaFormulario,
@@ -20,17 +20,6 @@ from .forms import (
     EmpresaFormulario,
 )
 from .models import Categoria, Contacto, Direccion, Empresa
-
-
-class MensajeFormularioMixin:
-    """Informa el resultado exitoso de altas y modificaciones."""
-
-    mensaje_exito = 'Registro guardado correctamente.'
-
-    def form_valid(self, form):
-        respuesta = super().form_valid(form)
-        messages.success(self.request, self.mensaje_exito)
-        return respuesta
 
 
 class EliminacionMixin:
@@ -44,7 +33,13 @@ class EliminacionMixin:
         return respuesta
 
 
-class CategoriaListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
+class CategoriaListaVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    ContextoPaginacionMixin,
+    ListView,
+):
+    permission_required = 'empresas.view_categoria'
     model = Categoria
     template_name = 'empresas/categoria_lista.html'
     context_object_name = 'categorias'
@@ -56,29 +51,56 @@ class CategoriaListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView)
         return Categoria.objects.order_by('nombre', 'pk')
 
 
-class CategoriaCrearVista(LoginRequiredMixin, MensajeFormularioMixin, CreateView):
+class CategoriaCrearVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    MensajeFormularioMixin,
+    CreateView,
+):
+    permission_required = 'empresas.add_categoria'
     model = Categoria
     form_class = CategoriaFormulario
     template_name = 'formularios/formulario.html'
     success_url = reverse_lazy('empresas:categoria_lista')
-    extra_context = {'titulo_formulario': 'Nueva categoría', 'ruta_cancelar': 'empresas:categoria_lista'}
+    extra_context = {
+        'titulo_formulario': 'Nueva categoría',
+        'ruta_cancelar': 'empresas:categoria_lista',
+    }
     mensaje_exito = 'Categoría creada correctamente.'
 
 
-class CategoriaEditarVista(LoginRequiredMixin, MensajeFormularioMixin, UpdateView):
+class CategoriaEditarVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    MensajeFormularioMixin,
+    UpdateView,
+):
+    permission_required = 'empresas.change_categoria'
     model = Categoria
     form_class = CategoriaFormulario
     template_name = 'formularios/formulario.html'
     success_url = reverse_lazy('empresas:categoria_lista')
-    extra_context = {'titulo_formulario': 'Editar categoría', 'ruta_cancelar': 'empresas:categoria_lista'}
+    extra_context = {
+        'titulo_formulario': 'Editar categoría',
+        'ruta_cancelar': 'empresas:categoria_lista',
+    }
     mensaje_exito = 'Categoría actualizada correctamente.'
 
 
-class CategoriaEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
+class CategoriaEliminarVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    EliminacionMixin,
+    DeleteView,
+):
+    permission_required = 'empresas.delete_categoria'
     model = Categoria
     template_name = 'formularios/confirmar_eliminacion.html'
     success_url = reverse_lazy('empresas:categoria_lista')
-    extra_context = {'titulo_eliminacion': 'Eliminar categoría', 'ruta_cancelar': 'empresas:categoria_lista'}
+    extra_context = {
+        'titulo_eliminacion': 'Eliminar categoría',
+        'ruta_cancelar': 'empresas:categoria_lista',
+    }
     mensaje_exito = 'Categoría eliminada correctamente.'
 
     def get_context_data(self, **kwargs):
@@ -92,7 +114,13 @@ class CategoriaEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
         return contexto
 
 
-class EmpresaListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
+class EmpresaListaVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    ContextoPaginacionMixin,
+    ListView,
+):
+    permission_required = 'empresas.view_empresa'
     model = Empresa
     template_name = 'empresas/empresa_lista.html'
     context_object_name = 'empresas'
@@ -101,14 +129,24 @@ class EmpresaListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
     tipos_permitidos = {'todos', 'clientes', 'proveedores', 'ambos'}
 
     def get_queryset(self):
-        """Filtra empresas por razón social, RUC o correo electrónico."""
-        empresas = Empresa.objects.prefetch_related('categorias')
+        """Combina búsqueda, condición comercial y categoría."""
+        empresas = Empresa.objects.all()
         self.termino_busqueda = self.request.GET.get('q', '').strip()
         tipo_solicitado = self.request.GET.get('tipo', 'todos')
         self.tipo_empresa = (
             tipo_solicitado if tipo_solicitado in self.tipos_permitidos
             else 'todos'
         )
+        categoria_solicitada = self.request.GET.get('categoria', '').strip()
+        try:
+            self.categoria_seleccionada = int(categoria_solicitada)
+            if self.categoria_seleccionada <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            self.categoria_seleccionada = None
+            self.categoria_invalida = bool(categoria_solicitada)
+        else:
+            self.categoria_invalida = False
 
         if self.termino_busqueda:
             empresas = empresas.filter(
@@ -124,20 +162,35 @@ class EmpresaListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
         elif self.tipo_empresa == 'ambos':
             empresas = empresas.filter(es_cliente=True, es_proveedor=True)
 
-        return empresas.order_by('razon_social', 'pk')
+        if self.categoria_invalida:
+            empresas = empresas.none()
+        elif self.categoria_seleccionada is not None:
+            empresas = empresas.filter(
+                categorias__pk=self.categoria_seleccionada
+            )
+
+        return empresas.distinct().order_by('razon_social', 'pk')
 
     def get_context_data(self, **kwargs):
         """Conserva los criterios para mostrarlos y mantener la paginación."""
         contexto = super().get_context_data(**kwargs)
         contexto['termino_busqueda'] = self.termino_busqueda
         contexto['tipo_empresa'] = self.tipo_empresa
+        contexto['categorias_disponibles'] = Categoria.objects.order_by(
+            'nombre', 'pk'
+        )
+        contexto['categoria_seleccionada'] = self.categoria_seleccionada
         contexto['hay_filtros'] = (
-            bool(self.termino_busqueda) or self.tipo_empresa != 'todos'
+            bool(self.termino_busqueda)
+            or self.tipo_empresa != 'todos'
+            or self.categoria_seleccionada is not None
+            or self.categoria_invalida
         )
         return contexto
 
 
-class EmpresaDetalleVista(LoginRequiredMixin, DetailView):
+class EmpresaDetalleVista(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = 'empresas.view_empresa'
     model = Empresa
     template_name = 'empresas/empresa_detalle.html'
     context_object_name = 'empresa'
@@ -148,12 +201,21 @@ class EmpresaDetalleVista(LoginRequiredMixin, DetailView):
         ).prefetch_related('categorias', 'contactos')
 
 
-class EmpresaCrearVista(LoginRequiredMixin, MensajeFormularioMixin, CreateView):
+class EmpresaCrearVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    MensajeFormularioMixin,
+    CreateView,
+):
+    permission_required = 'empresas.add_empresa'
     model = Empresa
     form_class = EmpresaFormulario
     template_name = 'formularios/formulario.html'
     mensaje_exito = 'Empresa creada correctamente.'
-    extra_context = {'titulo_formulario': 'Nueva empresa', 'ruta_cancelar': 'empresas:empresa_lista'}
+    extra_context = {
+        'titulo_formulario': 'Nueva empresa',
+        'ruta_cancelar': 'empresas:empresa_lista',
+    }
 
     def form_valid(self, form):
         form.instance.usuario_creacion = self.request.user
@@ -164,12 +226,21 @@ class EmpresaCrearVista(LoginRequiredMixin, MensajeFormularioMixin, CreateView):
         return reverse('empresas:empresa_detalle', kwargs={'pk': self.object.pk})
 
 
-class EmpresaEditarVista(LoginRequiredMixin, MensajeFormularioMixin, UpdateView):
+class EmpresaEditarVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    MensajeFormularioMixin,
+    UpdateView,
+):
+    permission_required = 'empresas.change_empresa'
     model = Empresa
     form_class = EmpresaFormulario
     template_name = 'formularios/formulario.html'
     mensaje_exito = 'Empresa actualizada correctamente.'
-    extra_context = {'titulo_formulario': 'Editar empresa', 'ruta_cancelar': 'empresas:empresa_lista'}
+    extra_context = {
+        'titulo_formulario': 'Editar empresa',
+        'ruta_cancelar': 'empresas:empresa_lista',
+    }
 
     def form_valid(self, form):
         form.instance.usuario_modificacion = self.request.user
@@ -179,22 +250,38 @@ class EmpresaEditarVista(LoginRequiredMixin, MensajeFormularioMixin, UpdateView)
         return reverse('empresas:empresa_detalle', kwargs={'pk': self.object.pk})
 
 
-class EmpresaEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
+class EmpresaEliminarVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    EliminacionMixin,
+    DeleteView,
+):
+    permission_required = 'empresas.delete_empresa'
     model = Empresa
     template_name = 'formularios/confirmar_eliminacion.html'
     success_url = reverse_lazy('empresas:empresa_lista')
-    extra_context = {'titulo_eliminacion': 'Eliminar empresa', 'ruta_cancelar': 'empresas:empresa_lista'}
+    extra_context = {
+        'titulo_eliminacion': 'Eliminar empresa',
+        'ruta_cancelar': 'empresas:empresa_lista',
+    }
     mensaje_exito = 'Empresa eliminada correctamente.'
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto['advertencia_relaciones'] = (
-            'También se eliminarán sus contactos y las direcciones dependientes.'
+            'También se eliminarán sus contactos y las direcciones '
+            'dependientes.'
         )
         return contexto
 
 
-class ContactoListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
+class ContactoListaVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    ContextoPaginacionMixin,
+    ListView,
+):
+    permission_required = 'empresas.view_contacto'
     model = Contacto
     template_name = 'empresas/contacto_lista.html'
     context_object_name = 'contactos'
@@ -208,7 +295,12 @@ class ContactoListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
         )
 
 
-class ContactoDetalleVista(LoginRequiredMixin, DetailView):
+class ContactoDetalleVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    DetailView,
+):
+    permission_required = 'empresas.view_contacto'
     model = Contacto
     template_name = 'empresas/contacto_detalle.html'
     context_object_name = 'contacto'
@@ -219,12 +311,21 @@ class ContactoDetalleVista(LoginRequiredMixin, DetailView):
         )
 
 
-class ContactoCrearVista(LoginRequiredMixin, MensajeFormularioMixin, CreateView):
+class ContactoCrearVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    MensajeFormularioMixin,
+    CreateView,
+):
+    permission_required = 'empresas.add_contacto'
     model = Contacto
     form_class = ContactoFormulario
     template_name = 'formularios/formulario.html'
     success_url = reverse_lazy('empresas:contacto_lista')
-    extra_context = {'titulo_formulario': 'Nuevo contacto', 'ruta_cancelar': 'empresas:contacto_lista'}
+    extra_context = {
+        'titulo_formulario': 'Nuevo contacto',
+        'ruta_cancelar': 'empresas:contacto_lista',
+    }
     mensaje_exito = 'Contacto creado correctamente.'
 
 
@@ -250,26 +351,46 @@ class ContactoEmpresaCrearVista(ContactoCrearVista):
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto['subtitulo_formulario'] = f'Empresa: {self.empresa.razon_social}'
-        contexto['url_cancelar'] = reverse('empresas:empresa_detalle', kwargs={'pk': self.empresa.pk})
+        contexto['url_cancelar'] = reverse(
+            'empresas:empresa_detalle', kwargs={'pk': self.empresa.pk}
+        )
         return contexto
 
 
-class ContactoEditarVista(LoginRequiredMixin, MensajeFormularioMixin, UpdateView):
+class ContactoEditarVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    MensajeFormularioMixin,
+    UpdateView,
+):
+    permission_required = 'empresas.change_contacto'
     model = Contacto
     form_class = ContactoFormulario
     template_name = 'formularios/formulario.html'
     mensaje_exito = 'Contacto actualizado correctamente.'
-    extra_context = {'titulo_formulario': 'Editar contacto', 'ruta_cancelar': 'empresas:contacto_lista'}
+    extra_context = {
+        'titulo_formulario': 'Editar contacto',
+        'ruta_cancelar': 'empresas:contacto_lista',
+    }
 
     def get_success_url(self):
         return reverse('empresas:contacto_detalle', kwargs={'pk': self.object.pk})
 
 
-class ContactoEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
+class ContactoEliminarVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    EliminacionMixin,
+    DeleteView,
+):
+    permission_required = 'empresas.delete_contacto'
     model = Contacto
     template_name = 'formularios/confirmar_eliminacion.html'
     success_url = reverse_lazy('empresas:contacto_lista')
-    extra_context = {'titulo_eliminacion': 'Eliminar contacto', 'ruta_cancelar': 'empresas:contacto_lista'}
+    extra_context = {
+        'titulo_eliminacion': 'Eliminar contacto',
+        'ruta_cancelar': 'empresas:contacto_lista',
+    }
     mensaje_exito = 'Contacto eliminado correctamente.'
 
     def get_context_data(self, **kwargs):
@@ -281,7 +402,13 @@ class ContactoEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
         return contexto
 
 
-class DireccionListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView):
+class DireccionListaVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    ContextoPaginacionMixin,
+    ListView,
+):
+    permission_required = 'empresas.view_direccion'
     model = Direccion
     template_name = 'empresas/direccion_lista.html'
     context_object_name = 'direcciones'
@@ -295,12 +422,21 @@ class DireccionListaVista(LoginRequiredMixin, ContextoPaginacionMixin, ListView)
         ).order_by('pk')
 
 
-class DireccionCrearVista(LoginRequiredMixin, MensajeFormularioMixin, CreateView):
+class DireccionCrearVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    MensajeFormularioMixin,
+    CreateView,
+):
+    permission_required = 'empresas.add_direccion'
     model = Direccion
     form_class = DireccionFormulario
     template_name = 'formularios/formulario.html'
     success_url = reverse_lazy('empresas:direccion_lista')
-    extra_context = {'titulo_formulario': 'Nueva dirección', 'ruta_cancelar': 'empresas:direccion_lista'}
+    extra_context = {
+        'titulo_formulario': 'Nueva dirección',
+        'ruta_cancelar': 'empresas:direccion_lista',
+    }
     mensaje_exito = 'Dirección creada correctamente.'
 
 
@@ -325,23 +461,45 @@ class DireccionContactoCrearVista(DireccionCrearVista):
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
-        contexto['subtitulo_formulario'] = f'Contacto: {self.contacto.nombre} {self.contacto.apellido}'
-        contexto['url_cancelar'] = reverse('empresas:contacto_detalle', kwargs={'pk': self.contacto.pk})
+        contexto['subtitulo_formulario'] = (
+            f'Contacto: {self.contacto.nombre} {self.contacto.apellido}'
+        )
+        contexto['url_cancelar'] = reverse(
+            'empresas:contacto_detalle', kwargs={'pk': self.contacto.pk}
+        )
         return contexto
 
 
-class DireccionEditarVista(LoginRequiredMixin, MensajeFormularioMixin, UpdateView):
+class DireccionEditarVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    MensajeFormularioMixin,
+    UpdateView,
+):
+    permission_required = 'empresas.change_direccion'
     model = Direccion
     form_class = DireccionFormulario
     template_name = 'formularios/formulario.html'
     success_url = reverse_lazy('empresas:direccion_lista')
-    extra_context = {'titulo_formulario': 'Editar dirección', 'ruta_cancelar': 'empresas:direccion_lista'}
+    extra_context = {
+        'titulo_formulario': 'Editar dirección',
+        'ruta_cancelar': 'empresas:direccion_lista',
+    }
     mensaje_exito = 'Dirección actualizada correctamente.'
 
 
-class DireccionEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
+class DireccionEliminarVista(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    EliminacionMixin,
+    DeleteView,
+):
+    permission_required = 'empresas.delete_direccion'
     model = Direccion
     template_name = 'formularios/confirmar_eliminacion.html'
     success_url = reverse_lazy('empresas:direccion_lista')
-    extra_context = {'titulo_eliminacion': 'Eliminar dirección', 'ruta_cancelar': 'empresas:direccion_lista'}
+    extra_context = {
+        'titulo_eliminacion': 'Eliminar dirección',
+        'ruta_cancelar': 'empresas:direccion_lista',
+    }
     mensaje_exito = 'Dirección eliminada correctamente.'

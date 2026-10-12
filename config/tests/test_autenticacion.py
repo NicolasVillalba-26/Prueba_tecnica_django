@@ -1,6 +1,7 @@
 import re
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.contrib.staticfiles import finders
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -80,6 +81,8 @@ class AutenticacionPruebas(TestCase):
                 self.assertIsNotNone(finders.find(recurso))
 
     def test_sidebar_contiene_enlaces_a_crud(self):
+        permisos_consulta = Permission.objects.filter(codename__startswith='view_')
+        self.usuario.user_permissions.set(permisos_consulta)
         self.client.force_login(self.usuario)
 
         respuesta = self.client.get(reverse('principal'))

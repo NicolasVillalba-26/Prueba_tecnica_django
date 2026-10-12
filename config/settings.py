@@ -21,6 +21,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 entorno = environ.Env(
     DJANGO_DEBUG=(bool, False),
     DJANGO_ALLOWED_HOSTS=(list, ['localhost', '127.0.0.1']),
+    DJANGO_SECURE_SSL_REDIRECT=(bool, False),
+    DJANGO_SESSION_COOKIE_SECURE=(bool, False),
+    DJANGO_CSRF_COOKIE_SECURE=(bool, False),
+    DJANGO_SECURE_HSTS_SECONDS=(int, 0),
+    DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=(bool, False),
+    DJANGO_SECURE_HSTS_PRELOAD=(bool, False),
     POSTGRES_PORT=(int, 5432),
 )
 environ.Env.read_env(BASE_DIR / '.env')
@@ -36,6 +42,17 @@ SECRET_KEY = entorno('DJANGO_SECRET_KEY')
 DEBUG = entorno('DJANGO_DEBUG')
 
 ALLOWED_HOSTS = entorno('DJANGO_ALLOWED_HOSTS')
+
+# Estas medidas permanecen desactivadas en localhost y se habilitan mediante
+# variables de entorno cuando el sitio se publica exclusivamente por HTTPS.
+SECURE_SSL_REDIRECT = entorno('DJANGO_SECURE_SSL_REDIRECT')
+SESSION_COOKIE_SECURE = entorno('DJANGO_SESSION_COOKIE_SECURE')
+CSRF_COOKIE_SECURE = entorno('DJANGO_CSRF_COOKIE_SECURE')
+SECURE_HSTS_SECONDS = entorno('DJANGO_SECURE_HSTS_SECONDS')
+SECURE_HSTS_INCLUDE_SUBDOMAINS = entorno(
+    'DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS'
+)
+SECURE_HSTS_PRELOAD = entorno('DJANGO_SECURE_HSTS_PRELOAD')
 
 
 # Application definition
@@ -101,7 +118,10 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.'
+            'UserAttributeSimilarityValidator'
+        ),
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
@@ -132,6 +152,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
