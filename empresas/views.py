@@ -83,10 +83,12 @@ class CategoriaEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
-        contexto['advertencia_relaciones'] = (
-            f'Esta categoría está asociada a {self.object.empresas.count()} empresa(s). '
-            'Las empresas no serán eliminadas.'
-        )
+        cantidad_empresas = self.object.empresas.count()
+        if cantidad_empresas:
+            contexto['advertencia_relaciones'] = (
+                f'Esta categoría está asociada a {cantidad_empresas} empresa(s). '
+                'Las empresas no serán eliminadas.'
+            )
         return contexto
 
 
@@ -272,7 +274,10 @@ class ContactoEliminarVista(LoginRequiredMixin, EliminacionMixin, DeleteView):
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
-        contexto['advertencia_relaciones'] = 'También se eliminarán sus direcciones.'
+        if self.object.direcciones.exists():
+            contexto['advertencia_relaciones'] = (
+                'También se eliminarán sus direcciones.'
+            )
         return contexto
 
 

@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models.deletion import ProtectedError
+from django.db.models.deletion import ProtectedError, RestrictedError
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
@@ -32,7 +32,7 @@ class EliminacionProtegidaMixin:
         self.object = self.get_object()
         try:
             self.object.delete()
-        except ProtectedError:
+        except (ProtectedError, RestrictedError):
             messages.error(self.request, self.mensaje_protegido)
             return redirect(self.get_success_url())
         messages.success(self.request, self.mensaje_exito)
@@ -76,6 +76,7 @@ class DepartamentoEliminarVista(LoginRequiredMixin, EliminacionProtegidaMixin, D
         contexto = super().get_context_data(**kwargs)
         if self.object.ciudades.exists():
             contexto['advertencia_relaciones'] = 'Este departamento tiene ciudades asociadas y no puede eliminarse.'
+            contexto['eliminacion_bloqueada'] = True
         return contexto
 
 
@@ -117,4 +118,18 @@ class CiudadEliminarVista(LoginRequiredMixin, EliminacionProtegidaMixin, DeleteV
     success_url = reverse_lazy('ubicaciones:ciudad_lista')
     extra_context = {'titulo_eliminacion': 'Eliminar ciudad', 'ruta_cancelar': 'ubicaciones:ciudad_lista'}
     mensaje_exito = 'Ciudad eliminada correctamente.'
-    mensaje_protegido = 'No es posible eliminar la ciudad porque tiene direcciones asociadas.'
+    mensaje_protegido = (
+        'No es posible eliminar la ciudad porque está siendo utilizada en una '
+        'o más direcciones.'
+    )
+
+    def get_context_data(self, **kwargs):
+        """Advierte cuando las direcciones impiden eliminar la ciudad."""
+        contexto = super().get_context_data(**kwargs)
+        if self.object.direcciones.exists():
+            contexto['advertencia_relaciones'] = (
+                'Esta ciudad está siendo utilizada en una o más direcciones y '
+                'no puede eliminarse.'
+            )
+            contexto['eliminacion_bloqueada'] = True
+        return contexto
