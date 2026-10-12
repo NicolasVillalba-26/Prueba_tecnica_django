@@ -8,10 +8,12 @@ class FormularioModeloBootstrap(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for campo in self.fields.values():
-            if isinstance(
-                campo.widget,
-                (forms.CheckboxSelectMultiple, forms.CheckboxInput),
-            ):
+            if isinstance(campo.widget, forms.CheckboxSelectMultiple):
+                # CheckboxSelectMultiple reutiliza ``attrs`` tanto en el
+                # contenedor como en cada opción. Aplicar ``form-check-input``
+                # aquí hace que Bootstrap dibuje un checkbox sobre el grupo.
+                continue
+            if isinstance(campo.widget, forms.CheckboxInput):
                 campo.widget.attrs['class'] = 'form-check-input'
             elif isinstance(
                 campo.widget,

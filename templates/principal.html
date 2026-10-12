@@ -8,22 +8,24 @@
     <div class="card-body p-4 p-lg-5">
         <div class="row align-items-center g-4">
             <div class="col-lg-8">
-                <span class="text-primary fw-semibold">
+                <span class="etiqueta-bienvenida fw-semibold">
                     Bienvenido al sistema
                 </span>
-                <h2 class="display-6 fw-bold mt-2 mb-3">
+                <h2 class="display-6 fw-bold mt-3 mb-3 titulo-bienvenida">
                     Hola, {{ user.get_username }}
                 </h2>
-                <p class="lead text-body-secondary mb-0">
+                <p class="lead descripcion-bienvenida mb-0">
                     Administre la información comercial y geográfica desde un
                     espacio centralizado.
                 </p>
             </div>
-            <div class="col-lg-4 text-lg-end">
-                <i
-                    class="bi bi-buildings icono-bienvenida"
-                    aria-hidden="true"
-                ></i>
+            <div class="col-lg-4 text-lg-end d-none d-md-block">
+                <span class="contenedor-icono-bienvenida">
+                    <i
+                        class="bi bi-buildings icono-bienvenida"
+                        aria-hidden="true"
+                    ></i>
+                </span>
             </div>
         </div>
     </div>

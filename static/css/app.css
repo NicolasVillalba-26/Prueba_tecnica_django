@@ -33,14 +33,69 @@ body { background-color: var(--color-fondo); }
 .app-content { padding-bottom: 2rem; }
 
 .panel-bienvenida {
+    position: relative;
     overflow: hidden;
-    background: linear-gradient(135deg, #fff 40%, #e9f2ff 100%);
+    color: #fff;
+    background:
+        radial-gradient(circle at 88% 20%, rgba(86, 154, 255, 0.32), transparent 28%),
+        linear-gradient(135deg, #17253a 0%, #123f78 58%, #0d6efd 100%) !important;
+    box-shadow: 0 0.75rem 2rem rgba(6, 30, 62, 0.18);
+}
+
+.panel-bienvenida::after {
+    position: absolute;
+    right: -5rem;
+    bottom: -7rem;
+    width: 18rem;
+    height: 18rem;
+    content: "";
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+}
+
+.panel-bienvenida .card-body {
+    position: relative;
+    z-index: 1;
+}
+
+.etiqueta-bienvenida {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.8rem;
+    color: #dceaff;
+    background-color: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    font-size: 0.875rem;
+    letter-spacing: 0.02em;
+}
+
+.titulo-bienvenida {
+    color: #fff;
+    letter-spacing: -0.025em;
+}
+
+.descripcion-bienvenida {
+    max-width: 42rem;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.contenedor-icono-bienvenida {
+    display: inline-grid;
+    width: 9rem;
+    height: 9rem;
+    place-items: center;
+    background-color: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 2rem;
+    transform: rotate(3deg);
 }
 
 .icono-bienvenida {
-    color: rgba(13, 110, 253, 0.18);
-    font-size: clamp(5rem, 10vw, 8rem);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 5rem;
     line-height: 1;
+    transform: rotate(-3deg);
 }
 
 .tarjeta-modulo {
@@ -70,8 +125,15 @@ body { background-color: var(--color-fondo); }
 .lista-datos dt { color: var(--bs-secondary-color); font-weight: 600; }
 .lista-datos dd { margin-bottom: 1rem; }
 .errorlist { margin: 0; padding-left: 1.25rem; }
-.card-body fieldset > div { display: grid; gap: 0.5rem; }
-.card-body fieldset label { display: flex; align-items: center; gap: 0.5rem; }
+.grupo-opciones > div { display: grid; gap: 0.5rem; }
+.grupo-opciones label { display: flex; align-items: center; gap: 0.5rem; }
+.grupo-opciones input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: var(--color-primario);
+}
 
 @media (max-width: 575.98px) {
     .app-content-header { padding-block: 1rem; }

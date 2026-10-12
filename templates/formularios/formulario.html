@@ -21,7 +21,7 @@
                         {% for field in form %}
                             <div class="{% if field.field.widget.input_type == 'checkbox' and not field.field.widget.allow_multiple_selected %}col-12 col-md-4{% else %}col-12{% endif %}">
                                 {% if field.field.widget.allow_multiple_selected %}
-                                    <fieldset>
+                                    <fieldset class="grupo-opciones">
                                         <legend class="form-label fw-semibold fs-6">{{ field.label }}</legend>
                                         {{ field }}
                                     </fieldset>

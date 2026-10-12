@@ -119,18 +119,6 @@
                     </li>
                 {% endif %}
 
-                {% if user.is_staff %}
-                    <li class="nav-header">SISTEMA</li>
-                    <li class="nav-item">
-                        <a href="{% url 'admin:index' %}" class="nav-link">
-                            <i
-                                class="nav-icon bi bi-shield-lock"
-                                aria-hidden="true"
-                            ></i>
-                            <p>Django Admin</p>
-                        </a>
-                    </li>
-                {% endif %}
             </ul>
         </nav>
     </div>

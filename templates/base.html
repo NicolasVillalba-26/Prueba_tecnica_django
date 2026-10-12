@@ -7,7 +7,7 @@
     <title>{% block titulo %}Gestión de Empresas{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'vendor/adminlte/icons/bootstrap-icons.min.css' %}">
     <link rel="stylesheet" href="{% static 'vendor/adminlte/css/adminlte.min.css' %}">
-    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=2">
     {% block estilos %}{% endblock %}
 </head>
 <body class="{% block clase_body %}{% if user.is_authenticated %}layout-fixed sidebar-expand-lg bg-body-tertiary{% else %}login-page bg-body-secondary{% endif %}{% endblock %}">
